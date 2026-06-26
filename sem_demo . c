@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define NUM_THREADS 6
+
+sem_t counting_semaphore;
+
+void* access_resource(void* arg) {
+    long thread_id = (long)arg;
+
+    printf("Thread %ld is waiting to access the resource pool...\n", thread_id);
+    sem_wait(&counting_semaphore);
+
+    // Critical Section
+    printf("⚡ Thread %ld has ENTERED the resource pool.\n", thread_id);
+    sleep(2); // Simulating work inside the pool
+    printf("❌ Thread %ld is LEAVING the resource pool.\n", thread_id);
+
+    sem_post(&counting_semaphore);
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[NUM_THREADS];
+    
+    // Initialize counting semaphore to allow maximum 3 threads simultaneously
+    sem_init(&counting_semaphore, 0, 3);
+    printf("Counting Semaphore initialized to allow 3 threads simultaneously.\n\n");
+
+    for (long i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, access_resource, (void*)i);
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    sem_destroy(&counting_semaphore);
+    return 0;
+}

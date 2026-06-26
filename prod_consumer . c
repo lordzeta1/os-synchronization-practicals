@@ -1,0 +1,75 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+#define BUFFER_SIZE 5
+
+int buffer[BUFFER_SIZE];
+int in = 0;
+int out = 0;
+
+sem_t mutex;
+sem_t empty;
+sem_t full;
+
+void* producer(void* arg) {
+    for (int i = 0; i < 10; i++) {
+        int item = rand() % 100; // Generate a random item
+
+        sem_wait(&empty); // Decrement empty slots
+        sem_wait(&mutex); // Enter critical section
+
+        // Add item to buffer
+        buffer[in] = item;
+        printf("Producer produced: %d at slot %d\n", item, in);
+        in = (in + 1) % BUFFER_SIZE;
+
+        sem_post(&mutex); // Leave critical section
+        sem_post(&full);  // Increment full slots
+
+        sleep(1); // Simulate different production speeds
+    }
+    return NULL;
+}
+
+void* consumer(void* arg) {
+    for (int i = 0; i < 10; i++) {
+        sem_wait(&full);  // Decrement full slots
+        sem_wait(&mutex); // Enter critical section
+
+        // Remove item from buffer
+        int item = buffer[out];
+        printf("Consumer consumed: %d from slot %d\n", item, out);
+        out = (out + 1) % BUFFER_SIZE;
+
+        sem_post(&mutex); // Leave critical section
+        sem_post(&empty); // Increment empty slots
+
+        sleep(2); // Simulate slower consumption speed
+    }
+    return NULL;
+}
+
+int main() {
+    pthread_t prod_thread, cons_thread;
+
+    // Initialize semaphores
+    sem_init(&mutex, 0, 1);
+    sem_init(&empty, 0, BUFFER_SIZE);
+    sem_init(&full, 0, 0);
+
+    pthread_create(&prod_thread, NULL, producer, NULL);
+    pthread_create(&cons_thread, NULL, consumer, NULL);
+
+    pthread_join(prod_thread, NULL);
+    pthread_join(cons_thread, NULL);
+
+    // Clean up semaphores
+    sem_destroy(&mutex);
+    sem_destroy(&empty);
+    sem_destroy(&full);
+
+    return 0;
+}

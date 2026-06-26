@@ -1,0 +1,60 @@
+#include <stdio.h>
+#include <pthread.h>
+
+#define NUM_THREADS 5
+#define INCREMENTS 100000
+
+int counter = 0;
+pthread_mutex_t lock;
+
+// Function for threads WITHOUT mutex protection
+void* increment_without_mutex(void* arg) {
+    for (int i = 0; i < INCREMENTS; i++) {
+        counter++; // Race condition happens here
+    }
+    return NULL;
+}
+
+// Function for threads WITH mutex protection
+void* increment_with_mutex(void* arg) {
+    for (int i = 0; i < INCREMENTS; i++) {
+        pthread_mutex_lock(&lock);
+        counter++; // Safe section
+        pthread_mutex_unlock(&lock);
+    }
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[NUM_THREADS];
+
+    // --- TEST 1: WITHOUT MUTEX ---
+    printf("Running WITHOUT mutex...\n");
+    counter = 0;
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, increment_without_mutex, NULL);
+    }
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    printf("Expected Counter: %d\n", NUM_THREADS * INCREMENTS);
+    printf("Actual Counter:   %d (Observe that without mutex, final value is incorrect)\n\n", counter);
+
+    // --- TEST 2: WITH MUTEX ---
+    printf("Running WITH mutex...\n");
+    counter = 0;
+    pthread_mutex_init(&lock, NULL);
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, increment_with_mutex, NULL);
+    }
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    
+    printf("Expected Counter: %d\n", NUM_THREADS * INCREMENTS);
+    printf("Actual Counter:   %d (With mutex, counter = number of threads * increments)\n", counter);
+
+    pthread_mutex_destroy(&lock);
+    return 0;
+}
